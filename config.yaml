@@ -1,0 +1,119 @@
+project:
+  name: "3D Vision & Camera Localization Research Monitor"
+  language: "zh-CN"
+  timezone: "Asia/Tokyo"
+
+arxiv:
+  api_url: "https://export.arxiv.org/api/query"
+  # Each query is category-constrained and topic-specific. Keep lookback_days >= 7
+  # so a missed run can be recovered on the next run.
+  lookback_days: 14
+  max_results_per_topic: 100
+  request_interval_seconds: 3.2
+  user_agent: "arxiv-research-agent/0.1 (personal research monitoring)"
+  categories:
+    - cs.CV
+    - cs.RO
+    - cs.GR
+    - cs.LG
+
+research_profile: |
+  The researcher works on artificial intelligence, 3D computer vision, visual localization,
+  camera pose estimation, map-based localization, HLoc-style pipelines, relative-pose-based
+  localization (including Reloc3r-style methods), robust pose aggregation, geometric verification,
+  image matching, sparse-view reconstruction, and 3D Gaussian Splatting.
+
+  High-priority problems:
+  - Map-based visual localization using a pre-built 3D map or reference images.
+  - Structure-based and structureless localization.
+  - Relative pose estimation and multi-reference-image pose aggregation.
+  - Robust motion averaging, pose graph optimization, and uncertainty-aware estimation.
+  - Correspondence filtering, geometric consistency, outlier rejection, PnP/RANSAC.
+  - Local feature matching, detector-free matching, image retrieval, and covisibility.
+  - 3DGS/NeRF/neural scene representations used for localization or pose refinement.
+  - Camera pose estimation for sparse-view reconstruction and 3D vision.
+
+  Lower-priority but potentially useful:
+  - General SLAM/visual odometry, visual place recognition, 3D reconstruction,
+    neural rendering, and robotics localization when the technique transfers to the topics above.
+
+  Exclude or strongly down-rank:
+  - Pure image classification, detection, segmentation, or generic LLM work with no clear
+    connection to 3D vision, localization, geometry, matching, or camera pose.
+  - Pure pose estimation for human body/hand/face when it is not camera pose estimation.
+  - Pure 6D object pose estimation unless its geometric method transfers to camera localization.
+
+topic_groups:
+  - name: "visual_localization"
+    categories: [cs.CV, cs.RO]
+    keywords:
+      - "visual localization"
+      - "visual relocalization"
+      - "camera relocalization"
+      - "map-based localization"
+      - "image-based localization"
+      - "scene coordinate regression"
+      - "absolute camera pose"
+
+  - name: "relative_pose_and_structureless"
+    categories: [cs.CV, cs.RO]
+    keywords:
+      - "relative pose estimation"
+      - "structureless localization"
+      - "motion averaging"
+      - "pose aggregation"
+      - "multi-view pose estimation"
+      - "two-view geometry"
+      - "multi-view geometry"
+
+  - name: "matching_and_geometry"
+    categories: [cs.CV, cs.RO]
+    keywords:
+      - "image matching"
+      - "local feature matching"
+      - "geometric verification"
+      - "correspondence filtering"
+      - "outlier rejection"
+      - "robust matching"
+      - "PnP RANSAC"
+      - "covisibility clustering"
+
+  - name: "3d_representation_and_pose"
+    categories: [cs.CV, cs.GR]
+    keywords:
+      - "3D Gaussian Splatting"
+      - "Gaussian Splatting localization"
+      - "NeRF localization"
+      - "neural rendering localization"
+      - "camera pose refinement"
+      - "pose estimation with 3D Gaussian"
+      - "sparse-view reconstruction"
+
+  - name: "slam_and_robotics"
+    categories: [cs.RO, cs.CV]
+    keywords:
+      - "visual SLAM"
+      - "visual odometry"
+      - "robot localization"
+      - "visual place recognition"
+      - "long-term visual localization"
+
+screening:
+  high_relevance_threshold: 7.0
+  medium_relevance_threshold: 4.5
+  analyze_full_text_for_high_relevance: true
+  max_fulltext_chars: 50000
+  max_pdf_pages: 40
+  max_screening_per_run: 60
+  max_fulltext_per_run: 5
+  download_timeout_seconds: 90
+
+storage:
+  database_path: "data/papers.db"
+  pdf_dir: "data/pdfs"
+  report_dir: "reports"
+
+report:
+  include_medium_relevance: true
+  weekly_lookback_days: 7
+  title: "三维视觉与相机定位文献周报"
