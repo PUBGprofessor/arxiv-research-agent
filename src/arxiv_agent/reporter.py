@@ -7,8 +7,11 @@ from typing import Any
 
 from .llm import LLMClient
 
+# 报告生成模块：将数据库中的结构化结果整理为中文 Markdown 文献简报。
+
 
 def _md_list(values: Any) -> str:
+    """把可选的单值或列表格式化为 Markdown 列表。"""
     if not values:
         return "- 论文未明确说明\n"
     if isinstance(values, str):
@@ -17,6 +20,7 @@ def _md_list(values: Any) -> str:
 
 
 def _paper_section(p: dict[str, Any], llm: LLMClient | None = None) -> str:
+    """生成单篇论文报告；可用模型将初筛和分析字段翻译为中文。"""
     screening = p.get("screening") or {}
     analysis = p.get("full_analysis") or {}
     score = p.get("score") if p.get("score") is not None else screening.get("relevance_score", 0)
@@ -79,6 +83,7 @@ def _paper_section(p: dict[str, Any], llm: LLMClient | None = None) -> str:
 
 
 def generate_report(papers: list[dict[str, Any]], output_dir: Path, title: str, window_label: str, llm: LLMClient | None = None) -> Path:
+    """按相关度分组写出日报、周报和 latest 快捷报告。"""
     output_dir.mkdir(parents=True, exist_ok=True)
     high = [p for p in papers if (p.get("score") or 0) >= 7]
     medium = [p for p in papers if 4.5 <= (p.get("score") or 0) < 7]

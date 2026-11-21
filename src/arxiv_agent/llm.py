@@ -4,6 +4,8 @@ import json
 import re
 from typing import Any
 
+# 统一封装 OpenAI-compatible 接口调用及模型 JSON 响应解析。
+
 import requests
 
 

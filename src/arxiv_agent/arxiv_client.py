@@ -12,6 +12,8 @@ import requests
 ATOM = "http://www.w3.org/2005/Atom"
 ARXIV = "http://arxiv.org/schemas/atom"
 
+# arXiv API 以 Atom XML 返回结果，以下辅助函数负责解析 ID 与条目字段。
+
 
 def _text(parent: ET.Element, tag: str) -> str:
     node = parent.find(f"{{{ATOM}}}{tag}")
@@ -28,6 +30,7 @@ def _parse_arxiv_id(entry_id: str) -> tuple[str, str]:
 
 
 class ArxivClient:
+    """构建主题查询、遵守请求间隔并将 Atom 条目转换为内部记录。"""
     def __init__(self, cfg: dict[str, Any]):
         self.api_url = cfg["api_url"]
         self.interval = float(cfg.get("request_interval_seconds", 3.2))

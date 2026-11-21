@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+# 允许直接执行项目入口时导入位于 src/ 下的包。
 sys.path.insert(0, str(ROOT / "src"))
 
 from arxiv_agent.config import load_config
@@ -14,6 +15,7 @@ from arxiv_agent.pipeline import run_pipeline
 
 
 def main() -> int:
+    """解析命令行参数，执行模型连通性检查或一次监测任务。"""
     parser = argparse.ArgumentParser(description="Monitor arXiv papers for 3D vision and camera localization.")
     parser.add_argument("command", choices=["run", "test-llm"], nargs="?", default="run")
     parser.add_argument("--force", action="store_true", help="Reprocess fetched records; use cautiously to avoid repeated API costs.")

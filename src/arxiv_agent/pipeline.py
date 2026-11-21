@@ -19,14 +19,17 @@ log = logging.getLogger("arxiv_agent")
 
 
 def run_pipeline(cfg: dict[str, Any], force: bool = False) -> Path:
+    """执行检索到报告的完整流程，并返回本次日报路径。"""
     arxiv_cfg = cfg["arxiv"]
     db = PaperDB(resolve_path(cfg, cfg["storage"]["database_path"]))
+    # 先汇总所有主题的检索结果，再统一写入数据库，避免跨主题重复筛选。
     client = ArxivClient(arxiv_cfg)
     topics = cfg.get("topic_groups", [])
     discovered: dict[str, dict[str, Any]] = {}
 
     try:
         log.info("Fetching papers from %d topic groups", len(topics))
+        # 单个主题失败时记录异常并继续其余主题；失败主题会在后续运行再次检索。
         for topic in topics:
             log.info("Searching topic: %s", topic["name"])
             try:
@@ -54,6 +57,7 @@ def run_pipeline(cfg: dict[str, Any], force: bool = False) -> Path:
         high_threshold = float(screening_cfg.get("high_relevance_threshold", 7.0))
         pdf_dir = resolve_path(cfg, cfg["storage"]["pdf_dir"])
 
+        # 数据库中仍处于 discovered 的记录会在本次或后续运行继续初筛。
         pending_screening = db.list_pending_screening()
         max_screening = int(screening_cfg.get("max_screening_per_run", 60))
         pending_screening = pending_screening[:max_screening]
@@ -63,6 +67,7 @@ def run_pipeline(cfg: dict[str, Any], force: bool = False) -> Path:
         else:
             llm = None
 
+        # 每篇论文独立处理；失败时不改变 discovered 状态，以便下次运行重试。
         for idx, paper in enumerate(pending_screening, 1):
             log.info("[%d/%d] Screening %s", idx, len(pending_screening), paper["arxiv_id"])
             try:
@@ -96,7 +101,7 @@ def run_pipeline(cfg: dict[str, Any], force: bool = False) -> Path:
                     analysis = analyze_paper(llm, paper, screening, extracted)
                     db.update_full_analysis(paper["arxiv_id"], analysis, str(downloaded))
                 except Exception as exc:
-                    # Keep status='screened' so a later scheduled run can retry.
+                    # 保留 screened 状态，后续运行仍可重试该论文的全文分析。
                     log.exception("Full-text analysis failed for %s: %s", paper["arxiv_id"], exc)
 
         window_days = int(cfg.get("report", {}).get("weekly_lookback_days", 7))

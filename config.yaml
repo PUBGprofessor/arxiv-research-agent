@@ -89,14 +89,14 @@ topic_groups:
       - "pose estimation with 3D Gaussian"
       - "sparse-view reconstruction"
 
-  - name: "slam_and_robotics"
-    categories: [cs.RO, cs.CV]
-    keywords:
-      - "visual SLAM"
-      - "visual odometry"
-      - "robot localization"
-      - "visual place recognition"
-      - "long-term visual localization"
+  # - name: "slam_and_robotics"
+  #   categories: [cs.RO, cs.CV]
+  #   keywords:
+  #     - "visual SLAM"
+  #     - "visual odometry"
+  #     - "robot localization"
+  #     - "visual place recognition"
+  #     - "long-term visual localization"
 
 screening:
   high_relevance_threshold: 7.0

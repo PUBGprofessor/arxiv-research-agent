@@ -1,1 +1,1 @@
-"""Personal arXiv research monitoring agent."""
+"""个人 arXiv 文献监测工具包，提供检索、筛选、分析与报告功能。"""

@@ -1,164 +1,131 @@
-# arXiv Research Agent（3D Vision / Camera Localization）
+# arXiv Research Agent
 
-一个本地运行的科研文献监测项目：定时检索 arXiv，按研究画像进行 LLM 相关性筛选，对高相关论文下载 PDF 并提取文本，生成 Markdown 文献简报。
+面向三维视觉、视觉定位与相机位姿估计研究的本地文献监测工具。程序按主题检索 arXiv，使用兼容 OpenAI Chat Completions 的模型对标题和摘要做相关性初筛；可选地下载高相关论文 PDF、提取文本并生成技术分析，最后写出 Markdown 简报。
 
-## 1. 工作流
+## 项目流程
 
-1. 按 `config.yaml` 中的主题组和类别调用 arXiv API。
-2. 使用 SQLite 按 arXiv ID 去重并保存元数据。
-3. 使用 LLM 对标题和摘要进行 0–10 分相关性评分。
-4. 对评分达到阈值的论文下载 PDF，使用 PyMuPDF 提取文本。
-5. 让 LLM 输出结构化技术分析：任务假设、方法、几何/优化、数据集、指标、实验、局限性和研究启发。
-6. 输出 `reports/latest.md` 及按日期命名的 Markdown 报告。
+1. 读取 `config.yaml` 的研究画像、主题组、关键词和 arXiv 查询参数。
+2. 按主题组调用 arXiv Atom API。每组请求间隔由 `request_interval_seconds` 控制；只保留 `lookback_days` 内首次提交的论文。
+3. 以 arXiv ID 在 SQLite 中去重并保存论文元数据。未处理记录会在后续运行中继续处理。
+4. 对待处理论文的标题和摘要调用 LLM，生成 0–10 相关度分数、主题标签及判断依据。
+5. 默认对达到高相关阈值且允许全文阅读的论文下载 PDF，使用 PyMuPDF 提取有限页数/字符数，再调用 LLM 生成结构化技术分析。
+6. 生成中文 Markdown 报告：`reports/latest.md`、按日期保存的日报及按 ISO 周保存的周报。
 
-## 2. 环境要求
+## 环境与安装
 
-- Python 3.10 或更高版本（推荐 Python 3.11）
-- 可访问 arXiv API 的网络
-- 一个支持 OpenAI-compatible Chat Completions 接口的模型服务及 API Key
+需要 Python 3.10+（建议 3.11）、可访问 arXiv API 的网络，以及一个 OpenAI-compatible Chat Completions 服务的 API Key。PDF 全文分析依赖 PyMuPDF（`requirements.txt` 已包含）。
 
-## 3. 安装
-
-### Windows PowerShell
+Windows PowerShell：
 
 ```powershell
-cd path\to\arxiv-research-agent
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-Copy-Item .env.example .env
+notepad .env
 ```
 
-如果 PowerShell 不允许激活脚本，可以不激活环境，直接使用：
+若 PowerShell 禁止激活脚本，可直接用虚拟环境中的解释器：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-### Ubuntu / Linux
+Linux/macOS：
 
 ```bash
-cd /path/to/arxiv-research-agent
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-cp .env.example .env
+touch .env
+nano .env
 ```
 
-## 4. 配置模型 API
+## 配置
 
-编辑 `.env`：
+编辑项目根目录 `.env`，填入服务商提供的兼容端点、密钥和模型名称：
 
 ```dotenv
 LLM_BASE_URL=https://api.openai.com/v1
-LLM_API_KEY=你的API_KEY
-LLM_MODEL=你的模型名称
+LLM_API_KEY=替换为你的密钥
+LLM_MODEL=替换为可用模型名称
 LLM_TIMEOUT=180
 DISABLE_PDF_ANALYSIS=0
 ```
 
-程序使用通用的 `POST {LLM_BASE_URL}/chat/completions` 接口。若使用其他厂商，请按该厂商文档填写兼容地址和准确模型名称。若使用阿里云百炼，兼容地址会因地域和业务空间而不同；请查阅 [百炼 OpenAI 兼容接口说明](https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope)，不要直接照抄其他地域的地址。用于 Codex 的 Coding Plan 专用 Key/端点可能仅面向交互式编程工具，不应默认拿来作为后台论文 Agent 的服务凭证。
+程序请求 `{LLM_BASE_URL}/chat/completions`。使用其他厂商时，按厂商文档填写正确的兼容地址和模型名。不要提交 `.env`，也不要把密钥写入 YAML 或源码。
 
-不要把 `.env` 提交到 Git，也不要把 API Key 写进 `config.yaml` 或 Python 源码。
+按需编辑 `config.yaml`：
 
-## 5. 配置研究方向
+- `research_profile` 描述研究背景、重点和排除方向，供模型评估相关性。
+- `topic_groups` 定义 arXiv 分类和关键词；可以增删主题组以控制检索范围。
+- `arxiv.lookback_days` 是首次提交日期回看窗口，建议至少 7 天，便于定时任务漏跑后补回。
+- `arxiv.max_results_per_topic` 限定每个主题组的 API 返回上限；请求之间会按配置等待，避免高频访问。
+- `screening.high_relevance_threshold` 控制全文分析门槛；`max_screening_per_run` 和 `max_fulltext_per_run` 限制单次模型调用量。
+- `screening.max_fulltext_chars`、`max_pdf_pages` 限制送入模型的提取文本规模；`analyze_full_text_for_high_relevance` 可关闭全部全文分析。
+- `storage` 下的数据库、PDF 和报告目录可使用相对项目根目录的路径，也可填写绝对路径。
 
-编辑 `config.yaml`：
+要仅运行检索、摘要初筛和报告生成，在 `.env` 设置 `DISABLE_PDF_ANALYSIS=1`。这会跳过 PDF 下载和全文分析，但仍会使用 LLM 做摘要初筛。也可将 `screening.analyze_full_text_for_high_relevance` 设为 `false`；环境变量开关优先用于临时禁用。重新启用时设回 `0`。
 
-- `research_profile`：描述你的研究背景和优先问题。
-- `topic_groups`：维护分类与关键词。
-- `lookback_days`：每次检索回看的首次提交日期范围，建议保留 7–14 天，避免定时任务偶尔失败后漏文献。
-- `high_relevance_threshold`：默认 7 分，达到后才下载 PDF 并做全文分析。
-- `max_fulltext_chars`：发送给 LLM 的论文文本上限。第一版默认 50,000 字符，后续可按模型上下文和费用调整。
-- `max_screening_per_run`：每次运行最多初筛多少篇，默认 60；超出的论文留在数据库中等待下次运行。
-- `max_fulltext_per_run`：每次最多全文分析多少篇，默认 5；避免短时间产生过高模型费用。
+## 使用命令
 
-arXiv API 查询按主题组逐次请求，代码在请求之间留出 3.2 秒间隔。不要为了追求实时性而高频轮询 API。
-
-## 6. 测试与运行
-
-先测试模型连接：
+先检查模型服务连通性：
 
 ```powershell
 python main.py test-llm
 ```
 
-成功后执行一次完整任务：
+运行一次监测流程（不带子命令时默认也是 `run`）：
 
 ```powershell
 python main.py run
 ```
 
-如果暂时只想测试检索、评分和报告，不下载 PDF：
+强制重新处理本次检索到的记录：
 
-```dotenv
-DISABLE_PDF_ANALYSIS=1
+```powershell
+python main.py run --force
 ```
 
-然后运行 `python main.py run`。
+`--force` 会清除对应记录已有的初筛/全文分析结果并重新调用模型，可能增加 API 费用。Windows 若未激活虚拟环境，将命令中的 `python` 换为 `\.venv\Scripts\python.exe`。
 
-输出位置：
+## 数据与报告
 
-- `data/papers.db`：论文元数据、评分和分析结果。
-- `data/pdfs/`：高相关论文 PDF。
-- `reports/latest.md`：最近生成的报告。
-- `reports/daily/`：按运行日期保存的报告。
+- `data/papers.db`：SQLite 论文元数据、处理状态、评分及分析结果。
+- `data/pdfs/`：已下载的高相关论文 PDF（全文分析启用时）。
+- `reports/latest.md`：最近一次生成的报告。
+- `reports/daily/YYYY-MM-DD.md`：按本地日期保存的日报。
+- `reports/weekly/YYYY-Www.md`：按 ISO 年/周保存的周报。
 
-## 7. 定时运行
+程序会自动创建数据库和报告所需目录。报告中的模型评分是初筛参考，不代表论文质量或同行评审结论；PDF 文本提取可能遗漏公式、表格、图像及双栏排版信息，关键结果应回看原文。
 
-### Windows Task Scheduler
+## 测试
 
-建议先手动运行成功，再建立任务：
+在项目根目录执行：
 
-1. 打开“任务计划程序”。
-2. 选择“创建基本任务”。
-3. 名称填写 `arXiv Research Agent`。
-4. 触发器选择“每天”，设置期望时间。
-5. 操作选择“启动程序”。
-6. 程序填写项目虚拟环境的 Python 路径，例如 `D:\\arxiv-research-agent\\.venv\\Scripts\\python.exe`。
-7. 参数填写项目 `main.py` 的绝对路径后加 `run`，例如 `D:\\arxiv-research-agent\\main.py run`。
-8. “起始于”填写项目目录，例如 `D:\\arxiv-research-agent`。
-9. 保存后右键任务，选择“运行”测试。
+```powershell
+在 Windows PowerShell 中：
 
-注意：任务运行账户必须能读取 `.env`、写入 `data/` 和 `reports/`，且运行时机器需要联网。
-
-### Ubuntu / Linux cron
-
-执行 `crontab -e`，添加以下示例（每天早上 08:30）：
-
-```cron
-30 8 * * * cd /path/to/arxiv-research-agent && /path/to/arxiv-research-agent/.venv/bin/python main.py run >> logs/cron.log 2>&1
+```powershell
+$env:PYTHONPATH = "src"
+python -m pytest
 ```
 
-先创建日志目录：`mkdir -p logs`。cron 使用机器本地时区；请先检查系统时区。
+在 Linux/macOS 中：
 
-## 8. 当前版本边界
-
-- 当前是可扩展的 MVP，不是自动化学术审稿系统。
-- 初筛依赖标题和摘要，可能漏掉摘要未提及关键方法的论文。
-- PDF 文本抽取基于 PyMuPDF 的文本层和启发式选页，复杂双栏、公式、表格和图示可能丢失结构；关键论文必须回看原 PDF。
-- 本版会在后续运行中重试未完成的初筛和全文分析；`--force` 可以对本次检索到的论文重新分析。已存在论文的 arXiv 新版本检测和人工反馈闭环尚未实现。
-- LLM 评分不是论文质量评价，也不代表同行评审结论。
-
-## 9. 建议的后续迭代
-
-1. 加入 `--since`、`--dry-run` 和人工重新分析命令。
-2. 增加 arXiv 版本更新检测与 Cross-list 去重策略。
-3. 对高相关论文增加章节级分块分析，减少长文截断。
-4. 加入 Semantic Scholar/OpenAlex 引用关系追踪。
-5. 将人工标注的相关/不相关样本用于调整评分提示词。
-6. 报告加入 BibTeX、Zotero 导入和 GitHub 代码仓库检测。
-
-## 10. Codex 开发建议
-
-把本项目目录交给 Codex。建议先让它审查并修复 MVP，再按阶段扩展：
-
-```text
-请先完整阅读 README.md、config.yaml 和 src/ 下的代码。
-第一阶段：检查代码正确性、异常处理、arXiv Atom 解析、SQLite 幂等性和跨平台路径。
-第二阶段：补充 pytest 单元测试，特别是 arXiv ID 解析、日期过滤、去重、JSON 解析和报告生成。
-第三阶段：实现已有论文版本更新检测、失败任务重试和分析状态恢复。
-不要一次性引入多 Agent、向量数据库或复杂 RAG；先保证单机定时任务稳定运行。
+```bash
+PYTHONPATH=src python -m pytest
 ```
+```
+
+若尚未激活虚拟环境，使用 `\.venv\Scripts\python.exe -m pytest`。测试不应需要真实模型 API Key；`test-llm` 是在线连通性检查，不属于离线单元测试。
+
+## 运行注意事项
+
+- 首次运行前先成功执行 `test-llm`，确认端点、密钥、模型名和余额/权限有效。
+- arXiv API 和模型服务均需网络连接。失败的主题请求会记录日志；未完成的筛选/全文分析记录可在后续运行中重试。
+- 任务计划程序或 cron 应使用虚拟环境 Python，并将工作目录设为项目根目录，确保能读取 `.env`、`config.yaml` 并写入数据/报告目录。
+- 当前主题组以 `config.yaml` 中未注释的配置为准；调整主题组会改变每次检索覆盖的 arXiv 分类和关键词。
+- 避免过短周期轮询；保持合理回看窗口和 API 请求间隔。模型调用、PDF 下载可能产生费用或消耗带宽。
+- 当前工具是研究监测 MVP；初筛受标题摘要信息和提示词影响，结果需要研究者核验。

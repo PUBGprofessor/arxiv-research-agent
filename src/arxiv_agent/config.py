@@ -9,8 +9,11 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# 配置根目录固定为项目目录，避免从其他工作目录启动时找不到配置。
+
 
 def load_config() -> dict[str, Any]:
+    """读取 YAML 与 .env 配置，并将运行期环境选项放入内部字段。"""
     load_dotenv(ROOT / ".env")
     path = ROOT / "config.yaml"
     if not path.exists():
@@ -29,5 +32,6 @@ def load_config() -> dict[str, Any]:
 
 
 def resolve_path(cfg: dict[str, Any], value: str) -> Path:
+    """将相对存储路径解析到项目根目录，绝对路径保持原样。"""
     path = Path(value)
     return path if path.is_absolute() else cfg["_root"] / path

@@ -5,6 +5,8 @@ from typing import Any
 
 from .llm import LLMClient
 
+# 初筛仅使用标题与摘要，避免在筛选阶段就下载和处理整篇论文。
+
 
 SCREEN_SYSTEM = """You are a rigorous academic literature triage assistant specializing in 3D computer vision and camera localization.
 Evaluate only what is supported by the supplied title and abstract. Do not infer unreported experiments, results, code availability, or technical details.

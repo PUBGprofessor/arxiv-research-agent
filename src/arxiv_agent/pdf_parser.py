@@ -4,6 +4,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+# PDF 处理只负责下载和提取文本；论文结论分析由 analyzer 模块完成。
+
 import pymupdf
 import requests
 
